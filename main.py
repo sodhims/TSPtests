@@ -4,13 +4,88 @@ from src.tsp_gurobi import solve_tsp_gurobi
 import time
 import pandas as pd
 from itertools import product
+import json
+import os
 
+
+def load_cities_and_create_matrix(filename: str):
+    """
+    Load cities from JSON file and create distance matrix
+    
+    Args:
+        filename: Path to JSON file containing city coordinates
+        
+    Returns:
+        tuple: (distance_matrix, cities)
+    """
+    try:
+        # Read JSON file
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        
+        # Extract city coordinates
+        cities = [(city['x'], city['y']) for city in data['cities']]
+        num_cities = len(cities)
+        for i in range(5):
+            x, y = cities[i]
+            print(f"City {i}: (x={x:.2f}, y={y:.2f})")
+        
+        # Create distance matrix
+        distance_matrix = np.zeros((num_cities, num_cities))
+        
+        # Calculate distances
+        for i in range(num_cities):
+            for j in range(i+1, num_cities):
+                # Get coordinates
+                x1, y1 = cities[i]
+                x2, y2 = cities[j]
+                
+                # Calculate Euclidean distance
+                distance = np.sqrt((x2-x1)**2 + (y2-y1)**2)
+                
+                # Make matrix symmetric
+                distance_matrix[i][j] = distance
+                distance_matrix[j][i] = distance
+        
+        print(f"Successfully created distance matrix for {num_cities} cities")
+        return distance_matrix, cities
+        
+    except FileNotFoundError:
+        print(f"Error: File {filename} not found")
+        return None, None
+    except json.JSONDecodeError:
+        print(f"Error: Invalid JSON format in {filename}")
+        return None, None
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return None, None
+
+if __name__ == "__main__":
+    # Load and create distance matrix
+    current_dir = os.getcwd()
+
+# Method 1: Join paths using os.path.join
+    filename = os.path.join(current_dir, "cities.json")
+
+    distance_matrix, cities = load_cities_and_create_matrix(filename)
+    
+    if distance_matrix is not None:
+        # Print first 5x5 of distance matrix
+        print("\nFirst 5x5 of distance matrix:")
+        print(distance_matrix[:5, :5])
+        
+        # Print some statistics
+        print(f"\nDistance matrix statistics:")
+        print(f"Min distance: {np.min(distance_matrix[distance_matrix > 0]):.2f}")
+        print(f"Max distance: {np.max(distance_matrix):.2f}")
+        print(f"Average distance: {np.mean(distance_matrix[distance_matrix > 0]):.2f}")    
 # Create test problem (keep this constant for all experiments)
-num_cities = 20
+""" num_cities = 20
 np.random.seed(42)
 distance_matrix = np.random.randint(10, 100, size=(num_cities, num_cities))
 np.fill_diagonal(distance_matrix, 0)
-distance_matrix = (distance_matrix + distance_matrix.T) // 2
+distance_matrix = (distance_matrix + distance_matrix.T) // 2 """
+
 
 # Run Gurobi once for optimal solution
 print("\nSolving with Gurobi...")
@@ -21,12 +96,13 @@ print(f"Gurobi optimal distance: {gurobi_distance:.2f}")
 print(f"Gurobi solution time: {gurobi_time:.2f} seconds")
 
 # Define parameter levels for DOE
+# In your parameter levels, change to use EAX
 param_levels = {
     'population_size': [100, 200],
     'generations': [200, 500],
     'mutation_rate': [0.01, 0.05],
     'elitism_rate': [0.05, 0.15],
-    'crossover_type': [CrossoverType.EDGE, CrossoverType.ORDER, CrossoverType.PMX]
+    'crossover_type': [CrossoverType.EDGE,CrossoverType.EAX]  
 }
 
 # Generate all combinations
@@ -80,10 +156,10 @@ for i, (pop_size, gens, mut_rate, elit_rate, cross_type) in enumerate(experiment
         'Best Route': best_solution.route
     })
     
-    # Plot convergence for this experiment
-    plot_convergence(stats, 
-                    f"Convergence for pop={pop_size}, gen={gens}, mut={mut_rate}, "
-                    f"elit={elit_rate}, cross={cross_type.value}")
+    # Plot convergence for this experiment  - removed by MSS to speed run
+#    plot_convergence(stats, 
+#                    f"Convergence for pop={pop_size}, gen={gens}, mut={mut_rate}, "
+#                    f"elit={elit_rate}, cross={cross_type.value}")
 
 # Create results DataFrame
 df_results = pd.DataFrame(results)
@@ -103,7 +179,7 @@ pd.set_option('display.precision', 2)
 print(df_results[summary_cols])
 
 # Save results to CSV
-df_results.to_csv('experiment_results.csv', index=False)
+df_results.to_csv(os.path.join(current_dir,"experiment_results.csv"), index=False)
 print("\nDetailed results saved to 'experiment_results.csv'")
 
 # Print best configuration

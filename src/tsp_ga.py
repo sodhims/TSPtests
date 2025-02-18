@@ -1,4 +1,3 @@
-# src/tsp_ga.py
 import numpy as np
 from typing import List, Tuple, Dict
 import random
@@ -10,7 +9,8 @@ import matplotlib.pyplot as plt
 class CrossoverType(Enum):
     EDGE = "edge"
     ORDER = "order"
-    PMX = "pmx"  # Partially Mapped Crossover
+    PMX = "pmx"
+    EAX = "eax"
 
 class GAParameters:
     def __init__(
@@ -107,6 +107,120 @@ class TSPGeneticAlgorithm:
                 
         return offspring
 
+    def _eax_crossover(self, parent1: List[int], parent2: List[int]) -> List[int]:
+        """
+        Edge Assembly Crossover (EAX) operator.
+        """
+        def create_edge_list(tour):
+            edges = set()
+            for i in range(len(tour)):
+                edge = tuple(sorted([tour[i], tour[(i + 1) % len(tour)]]))
+                edges.add(edge)
+            return edges
+
+        def find_cycles(p1_edges, p2_edges):
+            # Create union graph
+            all_edges = p1_edges.union(p2_edges)
+            cycles = []
+            used_edges = set()
+            
+            while len(used_edges) < len(all_edges):
+                # Find an unused edge to start a new cycle
+                start_edge = next(iter(e for e in all_edges if e not in used_edges))
+                cycle = []
+                current_vertex = start_edge[0]
+                current_edge = start_edge
+                
+                while True:
+                    cycle.append(current_edge)
+                    used_edges.add(current_edge)
+                    next_vertex = current_edge[1] if current_edge[0] == current_vertex else current_edge[0]
+                    
+                    # Find next edge
+                    next_edges = [e for e in all_edges if e not in used_edges and 
+                                (e[0] == next_vertex or e[1] == next_vertex)]
+                    
+                    if not next_edges:
+                        break
+                        
+                    current_edge = next_edges[0]
+                    current_vertex = next_vertex
+                    
+                    if current_edge == start_edge:
+                        break
+                        
+                if cycle:
+                    cycles.append(cycle)
+                    
+            return cycles
+
+        def create_offspring_from_edges(edges, n):
+            # Convert edges to adjacency list
+            adj = {i: [] for i in range(n)}
+            for e in edges:
+                adj[e[0]].append(e[1])
+                adj[e[1]].append(e[0])
+                
+            # Create tour
+            tour = []
+            current = 0  # Start from vertex 0
+            used = set()
+            
+            while len(tour) < n:
+                tour.append(current)
+                used.add(current)
+                
+                # Choose next vertex
+                next_vertices = [v for v in adj[current] if v not in used]
+                if next_vertices:
+                    current = next_vertices[0]
+                else:
+                    # If no adjacent unused vertices, find any unused vertex
+                    unused = [v for v in range(n) if v not in used]
+                    if unused:
+                        current = unused[0]
+                        
+            return tour
+
+        # Create edge sets from parents
+        p1_edges = create_edge_list(parent1)
+        p2_edges = create_edge_list(parent2)
+        
+        # Find AB-cycles
+        cycles = find_cycles(p1_edges, p2_edges)
+        
+        # Create intermediate solutions by combining different cycle combinations
+        best_offspring = None
+        best_fitness = float('-inf')
+        
+        # Try different combinations of cycles
+        for i in range(min(len(cycles), 8)):  # Limit number of combinations to try
+            # Randomly select cycles
+            selected_cycles = random.sample(cycles, random.randint(1, min(len(cycles), 4)))
+            
+            # Create edge set for offspring
+            offspring_edges = set(p1_edges)  # Start with parent1 edges
+            
+            # Apply selected cycles
+            for cycle in selected_cycles:
+                for edge in cycle:
+                    if edge in offspring_edges:
+                        offspring_edges.remove(edge)
+                    else:
+                        offspring_edges.add(edge)
+                        
+            # Create offspring tour
+            offspring_tour = create_offspring_from_edges(offspring_edges, len(parent1))
+            
+            # Evaluate offspring
+            offspring = Individual(offspring_tour, self.distance_matrix)
+            
+            if offspring.fitness > best_fitness:
+                best_fitness = offspring.fitness
+                best_offspring = offspring_tour
+                
+        return best_offspring if best_offspring else parent1  # Fallback to parent1 if no valid offspring
+
     def _order_crossover(self, parent1: List[int], parent2: List[int]) -> List[int]:
         size = len(parent1)
         start, end = sorted(random.sample(range(size), 2))
@@ -159,6 +273,8 @@ class TSPGeneticAlgorithm:
             offspring_route = self._edge_crossover(parent1.route, parent2.route)
         elif self.params.crossover_type == CrossoverType.ORDER:
             offspring_route = self._order_crossover(parent1.route, parent2.route)
+        elif self.params.crossover_type == CrossoverType.EAX:
+            offspring_route = self._eax_crossover(parent1.route, parent2.route)
         else:  # PMX
             offspring_route = self._pmx_crossover(parent1.route, parent2.route)
             
@@ -222,107 +338,4 @@ def plot_convergence(stats: List[dict], title: str = "Convergence Plot"):
     plt.title(title)
     plt.legend()
     plt.grid(True)
-    plt.show()
-
-def run_parameter_optimization(
-    distance_matrix: np.ndarray,
-    mutation_rates: List[float],
-    elitism_rates: List[float],
-    crossover_types: List[CrossoverType],
-    num_runs: int = 5,
-    base_seed: int = 42
-) -> pd.DataFrame:
-    """
-    Run parameter optimization experiments.
-    Returns DataFrame with results for each parameter combination.
-    """
-    results = []
-    total_combinations = len(mutation_rates) * len(elitism_rates) * len(crossover_types)
-    
-    with tqdm(total=total_combinations, desc="Parameter Optimization") as pbar:
-        for mutation_rate in mutation_rates:
-            for elitism_rate in elitism_rates:
-                for crossover_type in crossover_types:
-                    run_results = []
-                    convergence_stats = []
-                    
-                    for run in range(num_runs):
-                        run_seed = base_seed + run
-                        params = GAParameters(
-                            mutation_rate=mutation_rate,
-                            elitism_rate=elitism_rate,
-                            crossover_type=crossover_type,
-                            random_seed=run_seed
-                        )
-                        
-                        ga = TSPGeneticAlgorithm(distance_matrix, params)
-                        best_individual, stats = ga.evolve(show_progress=False)
-                        run_results.append(1 / best_individual.fitness)
-                        convergence_stats.append(stats)
-                    
-                    avg_distance = sum(run_results) / len(run_results)
-                    std_distance = np.std(run_results)
-                    
-                    # Calculate average convergence speed
-                    convergence_gens = []
-                    for stats in convergence_stats:
-                        final_dist = stats[-1]['best_distance']
-                        threshold = final_dist * 1.05
-                        for gen_stat in stats:
-                            if gen_stat['best_distance'] <= threshold:
-                                convergence_gens.append(gen_stat['generation'])
-                                break
-                    
-                    results.append({
-                        'mutation_rate': mutation_rate,
-                        'elitism_rate': elitism_rate,
-                        'crossover_type': crossover_type.value,
-                        'avg_best_distance': avg_distance,
-                        'std_best_distance': std_distance,
-                        'min_best_distance': min(run_results),
-                        'max_best_distance': max(run_results),
-                        'avg_convergence_gen': sum(convergence_gens) / len(convergence_gens)
-                    })
-                    
-                    pbar.update(1)
-    
-    # Convert to DataFrame and sort by performance
-    df_results = pd.DataFrame(results)
-    df_results = df_results.sort_values('avg_best_distance')
-    
-    return df_results
-
-def plot_parameter_comparison(results_df: pd.DataFrame):
-    """Create visualization of parameter optimization results."""
-    # Plot 1: Boxplot of distances by crossover type
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 2, 1)
-    crossover_data = []
-    crossover_labels = []
-    for crossover in results_df['crossover_type'].unique():
-        mask = results_df['crossover_type'] == crossover
-        crossover_data.append([
-            results_df.loc[mask, 'avg_best_distance'],
-            results_df.loc[mask, 'min_best_distance'],
-            results_df.loc[mask, 'max_best_distance']
-        ])
-        crossover_labels.append(crossover)
-    plt.boxplot(crossover_data, labels=crossover_labels)
-    plt.title('Performance by Crossover Type')
-    plt.ylabel('Distance')
-    
-    # Plot 2: Scatter plot of mutation rate vs elitism rate
-    plt.subplot(1, 2, 2)
-    scatter = plt.scatter(
-        results_df['mutation_rate'],
-        results_df['elitism_rate'],
-        c=results_df['avg_best_distance'],
-        cmap='viridis'
-    )
-    plt.colorbar(scatter, label='Average Distance')
-    plt.xlabel('Mutation Rate')
-    plt.ylabel('Elitism Rate')
-    plt.title('Parameter Space Exploration')
-    
-    plt.tight_layout()
     plt.show()
