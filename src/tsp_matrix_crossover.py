@@ -3,6 +3,7 @@ import random
 import time
 from typing import List, Tuple, Dict
 import json
+import os
 
 class TSPGA:
     def __init__(self, cities: List[Tuple[float, float]], 
@@ -298,11 +299,16 @@ def load_cities_from_json(filename: str) -> List[Tuple[float, float]]:
     
 if __name__ == "__main__":
     # Create random cities
-    num_cities = 20
+    num_cities = 100
     random.seed(42)
     cities = [(random.uniform(0, 100), random.uniform(0, 100)) 
               for _ in range(num_cities)]
-    save_cities_to_json(cities, "cities.json")
+    current_dir = os.getcwd()
+
+# Method 1: Join paths using os.path.join
+    filename = os.path.join(current_dir, "cities.json")
+
+    save_cities_to_json(cities, filename)
 
 # Load cities for GA
     cities = load_cities_from_json("cities.json")

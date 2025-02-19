@@ -11,6 +11,7 @@ class CrossoverType(Enum):
     ORDER = "order"
     PMX = "pmx"
     EAX = "eax"
+    ERX = "erx"
 
 class GAParameters:
     def __init__(
@@ -262,6 +263,91 @@ class TSPGeneticAlgorithm:
                 
         return offspring
 
+    def _erx_crossover(self, parent1: List[int], parent2: List[int]) -> List[int]:
+        """
+        Perform edge recombination crossover between two parent tours.
+        
+        Args:
+            parent1: First parent tour
+            parent2: Second parent tour
+            
+        Returns:
+            Offspring tour
+        """
+        # Create edge tables for both parents
+        edge_table1 = self._create_edge_table(parent1)
+        edge_table2 = self._create_edge_table(parent2)
+        
+        # Create combined edge map
+        edge_map = {}
+        for city in range(self.num_cities):
+            # Combine edges from both parents and remove duplicates
+            neighbors = list(set(edge_table1[city] + edge_table2[city]))
+            edge_map[city] = neighbors
+        
+        # Initialize offspring
+        offspring = []
+        
+        # Choose starting city (randomly from either parent's endpoints)
+        possible_starts = [parent1[0], parent1[-1], parent2[0], parent2[-1]]
+        current_city = random.choice(possible_starts)
+        
+        # Build offspring
+        while len(offspring) < self.num_cities:
+            # Add current city to offspring
+            offspring.append(current_city)
+            
+            # Remove current city from all neighbor lists
+            for neighbors in edge_map.values():
+                if current_city in neighbors:
+                    neighbors.remove(current_city)
+            
+            # Get neighbors of current city
+            neighbors = edge_map[current_city]
+            
+            if not neighbors:
+                # If no neighbors left, choose random unvisited city
+                unvisited = list(set(range(self.num_cities)) - set(offspring))
+                if unvisited:
+                    current_city = random.choice(unvisited)
+                else:
+                    break
+            else:
+                # Choose neighbor with fewest remaining neighbors
+                # If tie, prefer common edges (edges in both parents)
+                min_neighbors = float('inf')
+                candidates = []
+                
+                for neighbor in neighbors:
+                    if neighbor in offspring:
+                        continue
+                        
+                    num_neighbors = len(edge_map[neighbor])
+                    
+                    if num_neighbors < min_neighbors:
+                        min_neighbors = num_neighbors
+                        candidates = [neighbor]
+                    elif num_neighbors == min_neighbors:
+                        candidates.append(neighbor)
+                
+                if candidates:
+                    # If multiple candidates, prefer edges present in both parents
+                    common_edges = [c for c in candidates if 
+                                (current_city in edge_table1[c] and current_city in edge_table2[c])]
+                    if common_edges:
+                        current_city = random.choice(common_edges)
+                    else:
+                        current_city = random.choice(candidates)
+                else:
+                    # If no valid neighbors, choose random unvisited city
+                    unvisited = list(set(range(self.num_cities)) - set(offspring))
+                    if unvisited:
+                        current_city = random.choice(unvisited)
+                    else:
+                        break
+        
+        return offspring
+    
     def _mutate(self, route: List[int]) -> List[int]:
         if random.random() < self.params.mutation_rate:
             i, j = random.sample(range(len(route)), 2)
@@ -275,6 +361,8 @@ class TSPGeneticAlgorithm:
             offspring_route = self._order_crossover(parent1.route, parent2.route)
         elif self.params.crossover_type == CrossoverType.EAX:
             offspring_route = self._eax_crossover(parent1.route, parent2.route)
+        elif self.params.crossover_type == CrossoverType.ERX:
+            offspring_route = self._erx_crossover(parent1.route, parent2.route)            
         else:  # PMX
             offspring_route = self._pmx_crossover(parent1.route, parent2.route)
             
@@ -323,6 +411,29 @@ class TSPGeneticAlgorithm:
             self.population = new_population
             
         return self.best_individual, self.generation_stats
+def _create_edge_table(self, tour: List[int]) -> Dict[int, List[int]]:
+    """
+    Create an edge table for a given tour.
+    
+    Args:
+        tour: List of cities representing a tour
+        
+    Returns:
+        Dictionary mapping each city to its neighbors in the tour
+    """
+    edge_table = {city: [] for city in range(self.num_cities)}
+    n = len(tour)
+    
+    for i in range(n):
+        city = tour[i]
+        # Add connections to previous and next cities in tour
+        prev_city = tour[(i - 1) % n]
+        next_city = tour[(i + 1) % n]
+        edge_table[city].extend([prev_city, next_city])
+    
+    return edge_table
+
+
 
 def plot_convergence(stats: List[dict], title: str = "Convergence Plot"):
     """Plot the convergence of the GA over generations."""

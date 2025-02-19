@@ -90,7 +90,7 @@ distance_matrix = (distance_matrix + distance_matrix.T) // 2 """
 # Run Gurobi once for optimal solution
 print("\nSolving with Gurobi...")
 start_time = time.time()
-gurobi_route, gurobi_distance = solve_tsp_gurobi(distance_matrix, time_limit=300)
+gurobi_route, gurobi_distance = solve_tsp_gurobi(distance_matrix, time_limit=3000)
 gurobi_time = time.time() - start_time
 print(f"Gurobi optimal distance: {gurobi_distance:.2f}")
 print(f"Gurobi solution time: {gurobi_time:.2f} seconds")
@@ -98,11 +98,11 @@ print(f"Gurobi solution time: {gurobi_time:.2f} seconds")
 # Define parameter levels for DOE
 # In your parameter levels, change to use EAX
 param_levels = {
-    'population_size': [100, 200],
-    'generations': [200, 500],
-    'mutation_rate': [0.01, 0.05],
-    'elitism_rate': [0.05, 0.15],
-    'crossover_type': [CrossoverType.EDGE,CrossoverType.EAX]  
+    'population_size': [200, 500],
+    'generations': [1000, 2000],
+    'mutation_rate': [0.05, 0.1],
+    'elitism_rate': [0.05, 0.1],
+    'crossover_type': [CrossoverType.EDGE,CrossoverType.ERX]  
 }
 
 # Generate all combinations
