@@ -66,7 +66,8 @@ def solve_tsp_hexaly(distance_matrix):
     # Initialize optimizer with parameters
     params = {
         'mip_gap': 0.01,  # 1% optimality gap
-        'time_limit': 3600  # 1 hour time limit
+        'time_limit': 3600,  # 1 hour time limit
+        'mip_tolerances_absmipgap':.01 # 1 percent gap
     }
 
     with hexaly.HexalyOptimizer() as optimizer:
@@ -108,8 +109,8 @@ def solve_tsp_hexaly(distance_matrix):
 
 if __name__ == "__main__":
     # Specify parameters
-    num_cities = 200  # Change this to your desired number
-    random_seed = 63  # Change this to your desired seed
+    num_cities = 100  # Change this to your desired number
+    random_seed = 71  # Change this to your desired seed
     
     # Construct the filename
     filename = f"cities{num_cities:03d}_{random_seed:02d}.json"

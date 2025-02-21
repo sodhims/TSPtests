@@ -93,8 +93,8 @@ def load_cities_and_create_matrix(filename: str):
 
 if __name__ == "__main__":
     # Set parameters
-    num_cities = 150  # You can modify this
-    random_seed = 42  # You can modify this
+    num_cities = 100  # You can modify this
+    random_seed = 71  # You can modify this
     
     # Generate and save cities
     filename = generate_cities(num_cities, random_seed)
