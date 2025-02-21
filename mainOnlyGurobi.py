@@ -59,40 +59,42 @@ def load_cities_and_create_matrix(filename: str):
         return None, None
 
 if __name__ == "__main__":
-    # Get list of JSON files in current directory
-    json_files = [f for f in os.listdir('.') if f.startswith('cities') and f.endswith('.json')]
+    # Specify parameters
+    num_cities = 150  # Change this to your desired number
+    random_seed = 53  # Change this to your desired seed
     
-    if not json_files:
-        print("No cities*.json files found in current directory")
+    # Construct the filename
+    filename = f"cities{num_cities:03d}_{random_seed:02d}.json"
+    
+    print(f"Looking for file: {filename}")
+    
+    # Check if file exists
+    if not os.path.exists(filename):
+        print(f"Error: File {filename} not found")
         exit()
     
-    # Sort files to process them in order
-    json_files.sort()
+    print(f"\nProcessing {filename}...")
     
-    # Process each file
-    for filename in json_files:
-        print(f"\nProcessing {filename}...")
+    # Load and create distance matrix
+    distance_matrix, cities = load_cities_and_create_matrix(filename)
+    
+    if distance_matrix is not None:
+        # Print matrix statistics
+        print(f"\nDistance matrix statistics:")
+        print(f"Min distance: {np.min(distance_matrix[distance_matrix > 0]):.2f}")
+        print(f"Max distance: {np.max(distance_matrix):.2f}")
+        print(f"Average distance: {np.mean(distance_matrix[distance_matrix > 0]):.2f}")
         
-        # Load and create distance matrix
-        distance_matrix, cities = load_cities_and_create_matrix(filename)
+        # Solve with Gurobi
+        print("\nSolving with Gurobi...")
+        start_time = time.time()
+        gurobi_route, gurobi_distance = solve_tsp_gurobi(distance_matrix, time_limit=3000)
+        solution_time = time.time() - start_time
         
-        if distance_matrix is not None:
-            # Print matrix statistics
-            print(f"\nDistance matrix statistics:")
-            print(f"Min distance: {np.min(distance_matrix[distance_matrix > 0]):.2f}")
-            print(f"Max distance: {np.max(distance_matrix):.2f}")
-            print(f"Average distance: {np.mean(distance_matrix[distance_matrix > 0]):.2f}")
-            
-            # Solve with Gurobi
-            print("\nSolving with Gurobi...")
-            start_time = time.time()
-            gurobi_route, gurobi_distance = solve_tsp_gurobi(distance_matrix, time_limit=3000)
-            solution_time = time.time() - start_time
-            
-            # Print results
-            print("\nGurobi Solution:")
-            print(f"Optimal distance: {gurobi_distance:.2f}")
-            print(f"Solution time: {solution_time:.2f} seconds")
-            print(f"Optimal route: {gurobi_route}")
-            
-            print("\n" + "="*50)
+        # Print results
+        print("\nGurobi Solution:")
+        print(f"Optimal distance: {gurobi_distance:.2f}")
+        print(f"Solution time: {solution_time:.2f} seconds")
+        print(f"Optimal route: {gurobi_route}")
+        
+        print("\n" + "="*50)

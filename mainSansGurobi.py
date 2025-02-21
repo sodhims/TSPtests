@@ -93,7 +93,7 @@ def load_cities_and_create_matrix(filename: str):
 
 if __name__ == "__main__":
     # Set parameters
-    num_cities = 20  # You can modify this
+    num_cities = 150  # You can modify this
     random_seed = 42  # You can modify this
     
     # Generate and save cities
@@ -115,13 +115,13 @@ if __name__ == "__main__":
 
         # Define parameter levels for DOE
         param_levels = {
-            'population_size': [200, 500],
-            'generations': [1000, 2000],
-            'mutation_rate': [0.05, 0.1],
-            'elitism_rate': [0.05, 0.1],
+            'population_size': [500],
+            'generations': [2000],
+            'mutation_rate': [0.1],
+            'elitism_rate': [0.1],
             'crossover_type': [CrossoverType.EDGE, CrossoverType.ERX]  
         }
-
+ 
         # Generate all combinations
         experiments = list(product(
             param_levels['population_size'],
